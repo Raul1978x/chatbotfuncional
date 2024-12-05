@@ -11,7 +11,24 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log', 'debug'],
       cors: true,
-      abortOnError: false // Prevenir que la app se cierre en errores de inicialización
+      abortOnError: false
+    });
+
+    // Configurar CORS de manera más específica
+    app.enableCors({
+      origin: [
+        'http://localhost:3000', 
+        'https://chatbot-dashboard-rst-argentinas-projects.vercel.app',
+        process.env.FRONTEND_URL || '*'
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Accept', 
+        'X-Requested-With'
+      ],
+      credentials: true,
     });
 
     // Configurar Swagger
@@ -25,25 +42,8 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
 
-    // Configurar CORS de manera más permisiva para desarrollo
-    app.enableCors({
-      origin: '*', // Permitir todos los orígenes
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    });
-
-    // Endpoint de salud para Render
-    app.get('/health', (req, res) => {
-      res.status(200).json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
-    });
-
     // Obtener el puerto del entorno o usar el valor por defecto
-    const port = process.env.PORT || 3003;
+    const port = process.env.PORT || 3000;
     
     // Iniciar el servidor
     await app.listen(port);
@@ -53,12 +53,11 @@ async function bootstrap() {
     logger.debug('Environment:', {
       NODE_ENV: process.env.NODE_ENV,
       PORT: port,
-      FRONTEND_URL_SET: !!process.env.FRONTEND_URL
+      FRONTEND_URL: process.env.FRONTEND_URL
     });
 
   } catch (error) {
     logger.error('Error bootstrapping application:', error);
-    // No lanzar el error, solo registrarlo
     process.exit(1);
   }
 }
