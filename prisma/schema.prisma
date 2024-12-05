@@ -6,6 +6,7 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
   engineType = "library"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 model User {
@@ -14,6 +15,7 @@ model User {
   updatedAt DateTime @updatedAt
   email     String   @unique
   name      String?
+  posts     Post[]
 }
 
 model Post {
@@ -22,4 +24,6 @@ model Post {
   updatedAt DateTime @updatedAt
   title     String
   content   String?
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
 }

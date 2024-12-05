@@ -14,6 +14,23 @@ async function bootstrap() {
       abortOnError: false
     });
 
+    // Configurar CORS de manera más específica
+    app.enableCors({
+      origin: [
+        'http://localhost:3000', 
+        'https://chatbot-dashboard-rst-argentinas-projects.vercel.app',
+        process.env.FRONTEND_URL || '*'
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Accept', 
+        'X-Requested-With'
+      ],
+      credentials: true,
+    });
+
     // Configurar Swagger
     const config = new DocumentBuilder()
       .setTitle('WhatsApp Bot API')
@@ -24,14 +41,6 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
-
-    // Configurar CORS de manera más permisiva para desarrollo
-    app.enableCors({
-      origin: '*', 
-      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      credentials: true,
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    });
 
     // Obtener el puerto del entorno o usar el valor por defecto
     const port = process.env.PORT || 3000;
@@ -44,12 +53,11 @@ async function bootstrap() {
     logger.debug('Environment:', {
       NODE_ENV: process.env.NODE_ENV,
       PORT: port,
-      FRONTEND_URL_SET: !!process.env.FRONTEND_URL
+      FRONTEND_URL: process.env.FRONTEND_URL
     });
 
   } catch (error) {
     logger.error('Error bootstrapping application:', error);
-    // No lanzar el error, solo registrarlo
     process.exit(1);
   }
 }
