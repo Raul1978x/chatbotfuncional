@@ -18,12 +18,19 @@ async function bootstrap() {
 
   // Habilitar CORS
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://your-frontend-domain.vercel.app' // Añade aquí el dominio de tu frontend en producción
+    ],
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
-  await app.listen(3002);
+  // Usar el puerto proporcionado por Vercel o el puerto 3002 para desarrollo
+  const port = process.env.PORT || 3002;
+  await app.listen(port);
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();
