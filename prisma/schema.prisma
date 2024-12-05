@@ -1,12 +1,6 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-  relationMode = "prisma"
-  ssl = {
-    rejectUnauthorized = env("NEON_SSL_REJECT_UNAUTHORIZED")
-    ca = env("NEON_SSL_CA")
-  }
 }
 
 generator client {
@@ -19,7 +13,6 @@ model User {
   updatedAt DateTime @updatedAt
   email     String   @unique
   name      String?
-  posts     Post[]
 }
 
 model Post {
@@ -28,5 +21,4 @@ model Post {
   updatedAt DateTime @updatedAt
   title     String
   content   String?
-  author    User     @relation(fields: [id], references: [id])
 }
