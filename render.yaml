@@ -9,4 +9,6 @@ services:
         value: 3002
       - key: FRONTEND_URL
         value: https://chatbot-dashboard-rst-argentinas-projects.vercel.app
+      - key: DATABASE_URL
+        sync: false
     autoDeploy: true
