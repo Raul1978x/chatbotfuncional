@@ -11,7 +11,7 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log', 'debug'],
       cors: true,
-      abortOnError: false // Prevenir que la app se cierre en errores de inicialización
+      abortOnError: false
     });
 
     // Configurar Swagger
@@ -27,23 +27,14 @@ async function bootstrap() {
 
     // Configurar CORS de manera más permisiva para desarrollo
     app.enableCors({
-      origin: '*', // Permitir todos los orígenes
+      origin: '*', 
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     });
 
-    // Endpoint de salud para Render
-    app.get('/health', (req, res) => {
-      res.status(200).json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
-    });
-
     // Obtener el puerto del entorno o usar el valor por defecto
-    const port = process.env.PORT || 3003;
+    const port = process.env.PORT || 3000;
     
     // Iniciar el servidor
     await app.listen(port);
