@@ -1,12 +1,9 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { PrismaClient } from '@prisma/client';
 
-export const databaseConfig: TypeOrmModuleOptions = {
-  type: 'postgres',
-  host: 'localhost',
-  port: 5432,
-  username: 'postgres',
-  password: 'admin123',
-  database: 'chatbot_db',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: true,
-};
+export const prismaClient = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
