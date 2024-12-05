@@ -2,13 +2,22 @@ services:
   - type: web
     name: whatsapp-chatbot
     env: node
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npm run start:prod
     envVars:
       - key: PORT
-        value: 3002
+        value: 3000
+      - key: NODE_ENV
+        value: production
       - key: FRONTEND_URL
         value: https://chatbot-dashboard-rst-argentinas-projects.vercel.app
       - key: DATABASE_URL
         sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: NEON_SSL_REJECT_UNAUTHORIZED
+        value: "true"
     autoDeploy: true
+    plan: free
+    healthCheckPath: /health
+    runtime: nodejs18.x
