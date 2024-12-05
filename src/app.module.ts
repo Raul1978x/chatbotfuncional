@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -15,6 +16,10 @@ import { WhatsappModule } from './whatsapp/whatsapp.module';
       database: 'chatbot_db',
       autoLoadEntities: true,
       synchronize: true,
+    }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     WhatsappModule,
   ],
