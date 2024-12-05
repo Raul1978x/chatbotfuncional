@@ -33,6 +33,15 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     });
 
+    // Endpoint de salud para Render
+    app.get('/health', (req, res) => {
+      res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+    });
+
     // Obtener el puerto del entorno o usar el valor por defecto
     const port = process.env.PORT || 3003;
     
