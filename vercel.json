@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "./vercel-build.sh",
   "installCommand": "npm install",
   "outputDirectory": "dist",
   "framework": null,
@@ -17,14 +17,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/main.js",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept"
-      }
+      "dest": "dist/main.js"
     }
-  ],
-  "regions": ["all"],
-  "public": false
+  ]
 }
