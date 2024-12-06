@@ -8,7 +8,10 @@
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "build": "nest build && tsc netlify/functions/api.ts --outDir dist/functions --esModuleInterop true",
+    "prebuild": "rimraf dist",
+    "build": "npm run build:app && npm run build:functions",
+    "build:app": "nest build",
+    "build:functions": "tsc netlify/functions/api.ts --outDir dist/functions --skipLibCheck true --esModuleInterop true",
     "start": "node -r dotenv/config dist/main",
     "start:dev": "npx @nestjs/cli start --watch",
     "start:prod": "node dist/main",
@@ -49,6 +52,7 @@
     "@nestjs/testing": "^10.0.0",
     "@types/qrcode": "^1.4.3",
     "prisma": "6.0.1",
+    "rimraf": "^4.4.1",
     "typescript": "^5.1.3",
     "vercel": "^28.18.5"
   }
