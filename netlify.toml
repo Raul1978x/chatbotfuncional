@@ -15,7 +15,7 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["dist/**/*"]
+  external_node_modules = ["@nestjs/*", "@prisma/client", "@whiskeysockets/baileys", "express"]
 
 [[headers]]
   for = "/*"
