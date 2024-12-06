@@ -4,6 +4,7 @@ import { Boom } from '@hapi/boom';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as qrcode from 'qrcode';
+import pino from 'pino';
 import { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 
 @Injectable()
@@ -115,18 +116,10 @@ export class WhatsappService implements OnModuleInit {
       const authPath = path.join(process.cwd(), 'auth_info_baileys');
       const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
-      // Configuración de logger personalizada
-      const logger = {
-        info: (msg: string) => this.logger.log(msg),
-        warn: (msg: string) => this.logger.warn(msg),
-        error: (msg: string) => this.logger.error(msg),
-        child: () => logger // Agregamos un método child que devuelve el mismo logger
-      };
-
+      // Configuración por defecto
       this.client = makeWASocket.default({
         auth: state,
         printQRInTerminal: true,
-        logger: logger
       });
 
       // Manejar eventos de conexión
