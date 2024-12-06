@@ -23,7 +23,12 @@ async function bootstrap() {
 
     // Configurar CORS de manera más específica
     app.enableCors({
-      origin: '*', // Permitir cualquier origen
+      origin: [
+        'http://localhost:3000', 
+        'http://localhost:3001', 
+        'https://chatbot-funcional.vercel.app',
+        'https://whatsapp-chatbot-frontend.vercel.app'
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: [
         'Content-Type', 
