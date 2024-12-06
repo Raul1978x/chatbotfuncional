@@ -1,68 +1,26 @@
-import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
+import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import serverless from 'serverless-http';
+import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../src/app.module';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import express from 'express';
 
-let app;
+let cachedHandler: any = null;
 
-async function bootstrap() {
-  const expressApp = express();
-  const adapter = new ExpressAdapter(expressApp);
-  
-  app = await NestFactory.create(AppModule, adapter);
+async function createHandler() {
+  const app = await NestFactory.create(AppModule);
   app.enableCors();
   await app.init();
-  
-  return expressApp;
+
+  const expressApp = express();
+  expressApp.use(await serverless(app.getHttpAdapter().getInstance()));
+
+  return serverless(expressApp);
 }
 
-export const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
-  try {
-    const expressApp = app ? app.getHttpAdapter().getInstance() : await bootstrap();
-    
-    // Convert event to express request
-    const request = {
-      method: event.httpMethod,
-      path: event.path,
-      headers: event.headers,
-      body: event.body,
-      query: event.queryStringParameters || {},
-    };
-
-    return await new Promise<HandlerResponse>((resolve, reject) => {
-      const response = {
-        statusCode: 200,
-        headers: {},
-        body: '',
-      };
-
-      expressApp(request, response, (err) => {
-        if (err) {
-          console.error('Error:', err);
-          resolve({
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Internal Server Error' }),
-          });
-        } else {
-          resolve({
-            statusCode: response.statusCode,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Headers': 'Content-Type',
-              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            },
-            body: response.body || JSON.stringify({}),
-          });
-        }
-      });
-    });
-  } catch (error) {
-    console.error('Bootstrap Error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Server Initialization Error' }),
-    };
+export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+  if (!cachedHandler) {
+    cachedHandler = await createHandler();
   }
+
+  return cachedHandler(event, context);
 };
