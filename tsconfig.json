@@ -6,7 +6,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "ES2021",
+    "target": "es2017",
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
@@ -18,14 +18,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
-    "moduleResolution": "node",
-    "useDefineForClassFields": true,
-    "strict": false,
-    "types": ["node"],
-    "lib": ["ES2021"]
-  },
-  "ts-node": {
-    "transpileOnly": true
+    "resolveJsonModule": true
   },
   "include": ["src/**/*", "netlify/functions/**/*"],
   "exclude": ["node_modules", "dist"]

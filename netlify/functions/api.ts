@@ -4,6 +4,34 @@ import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../src/app.module';
 
+// Fallback para importaciones dinámicas
+const dynamicImportFallback = {
+  linkPreview: () => ({ default: {} }),
+  classTransformer: () => ({ storage: {} }),
+  jimp: () => ({}),
+  qrcodeTerminal: () => ({}),
+  sharp: () => ({})
+};
+
+// Sobrescribir require dinámico
+const originalRequire = require;
+(global as any).require = (moduleName: string) => {
+  switch (moduleName) {
+    case 'link-preview-js':
+      return dynamicImportFallback.linkPreview();
+    case 'class-transformer/storage':
+      return dynamicImportFallback.classTransformer();
+    case 'jimp':
+      return dynamicImportFallback.jimp();
+    case 'qrcode-terminal':
+      return dynamicImportFallback.qrcodeTerminal();
+    case 'sharp':
+      return dynamicImportFallback.sharp();
+    default:
+      return originalRequire(moduleName);
+  }
+};
+
 let cachedHandler: any = null;
 
 async function createHandler() {
@@ -18,9 +46,17 @@ async function createHandler() {
 }
 
 export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  if (!cachedHandler) {
-    cachedHandler = await createHandler();
-  }
+  try {
+    if (!cachedHandler) {
+      cachedHandler = await createHandler();
+    }
 
-  return cachedHandler(event, context);
+    return await cachedHandler(event, context);
+  } catch (error) {
+    console.error('Netlify Function Error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal Server Error', details: error.message })
+    };
+  }
 };

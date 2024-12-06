@@ -21,7 +21,12 @@
     "@nestjs/platform-express", 
     "@prisma/client", 
     "express", 
-    "serverless-http"
+    "serverless-http",
+    "link-preview-js",
+    "class-transformer",
+    "jimp",
+    "qrcode-terminal",
+    "sharp"
   ]
 
 [[headers]]
