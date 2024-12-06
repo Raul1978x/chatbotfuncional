@@ -1,4 +1,4 @@
-import { Handler } from '@netlify/functions';
+import { Handler, HandlerEvent, HandlerContext, HandlerResponse } from '@netlify/functions';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
@@ -17,7 +17,7 @@ async function bootstrap() {
   return expressApp;
 }
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event: HandlerEvent, context: HandlerContext): Promise<HandlerResponse> => {
   try {
     const expressApp = app ? app.getHttpAdapter().getInstance() : await bootstrap();
     
@@ -30,7 +30,7 @@ export const handler: Handler = async (event, context) => {
       query: event.queryStringParameters || {},
     };
 
-    return new Promise((resolve, reject) => {
+    return await new Promise<HandlerResponse>((resolve, reject) => {
       const response = {
         statusCode: 200,
         headers: {},
@@ -40,7 +40,7 @@ export const handler: Handler = async (event, context) => {
       expressApp(request, response, (err) => {
         if (err) {
           console.error('Error:', err);
-          reject({
+          resolve({
             statusCode: 500,
             body: JSON.stringify({ error: 'Internal Server Error' }),
           });
@@ -53,7 +53,7 @@ export const handler: Handler = async (event, context) => {
               'Access-Control-Allow-Headers': 'Content-Type',
               'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
             },
-            body: response.body,
+            body: response.body || JSON.stringify({}),
           });
         }
       });

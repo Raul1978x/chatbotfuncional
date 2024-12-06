@@ -19,7 +19,10 @@
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
     "moduleResolution": "node",
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "strict": false,
+    "types": ["node"],
+    "lib": ["ES2021"]
   },
   "include": ["src/**/*", "netlify/functions/**/*"],
   "exclude": ["node_modules", "dist"]
