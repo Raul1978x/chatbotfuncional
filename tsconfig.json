@@ -17,7 +17,9 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "useDefineForClassFields": false
   },
   "include": ["src/**/*", "netlify/functions/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -1,39 +1,68 @@
-import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import { Handler } from '@netlify/functions';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../src/app.module';
-import serverless from 'serverless-http';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
 
-let cachedServer: any;
+let app;
 
 async function bootstrap() {
   const expressApp = express();
   const adapter = new ExpressAdapter(expressApp);
   
-  const app = await NestFactory.create(AppModule, adapter);
+  app = await NestFactory.create(AppModule, adapter);
   app.enableCors();
   await app.init();
-
-  const handler = serverless(expressApp);
-  return handler;
+  
+  return expressApp;
 }
 
-export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  if (!cachedServer) {
-    cachedServer = await bootstrap();
-  }
+export const handler: Handler = async (event, context) => {
+  try {
+    const expressApp = app ? app.getHttpAdapter().getInstance() : await bootstrap();
+    
+    // Convert event to express request
+    const request = {
+      method: event.httpMethod,
+      path: event.path,
+      headers: event.headers,
+      body: event.body,
+      query: event.queryStringParameters || {},
+    };
 
-  const result = await cachedServer(event, context);
-  
-  return {
-    statusCode: result.statusCode,
-    headers: { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
-    },
-    body: result.body
-  };
+    return new Promise((resolve, reject) => {
+      const response = {
+        statusCode: 200,
+        headers: {},
+        body: '',
+      };
+
+      expressApp(request, response, (err) => {
+        if (err) {
+          console.error('Error:', err);
+          reject({
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Internal Server Error' }),
+          });
+        } else {
+          resolve({
+            statusCode: response.statusCode,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Content-Type',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            },
+            body: response.body,
+          });
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Bootstrap Error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Server Initialization Error' }),
+    };
+  }
 };
