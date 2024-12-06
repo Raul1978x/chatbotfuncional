@@ -17,9 +17,8 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "esModuleInterop": true,
-    "resolveJsonModule": true
+    "esModuleInterop": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "netlify/functions/**/*"],
   "exclude": ["node_modules", "dist"]
 }
