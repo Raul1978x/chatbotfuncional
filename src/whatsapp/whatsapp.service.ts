@@ -1,206 +1,230 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as makeWASocket from '@whiskeysockets/baileys';
+import { Injectable, Logger } from '@nestjs/common';
+import makeWASocket, {
+  DisconnectReason,
+  WASocket,
+  proto,
+  BaileysEventMap,
+  WAMessageKey,
+  useMultiFileAuthState,
+  UserFacingSocketConfig,
+} from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as qrcode from 'qrcode';
 import pino from 'pino';
-import { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import { join } from 'path';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ChatbotService } from '../chatbot/services/chatbot.service';
+
+export interface ProcessedMessage {
+  text: string;
+  from: string;
+  timestamp: number;
+  key: WAMessageKey;
+  message?: proto.IMessage;
+}
+
+export interface StatusResponseDto {
+  status: 'connected' | 'disconnected' | 'connecting';
+  timestamp: string;
+}
 
 @Injectable()
-export class WhatsappService implements OnModuleInit {
+export class WhatsappService {
+  private socket: WASocket;
   private readonly logger = new Logger(WhatsappService.name);
-  private client: any;
-  private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
-  private currentQR: string | null = null;
-  private qrGenerationAttempts = 0;
-  private readonly MAX_QR_ATTEMPTS = 3;
+  private qrCode: string;
+  private isConnected = false;
+  private connectionAttempts = 0;
+  private readonly MAX_QR_ATTEMPTS = 5;
+  private readonly AUTH_FOLDER = 'auth_info';
 
-  async onModuleInit() {
+  constructor(
+    private eventEmitter: EventEmitter2,
+    private readonly chatbotService: ChatbotService
+  ) {}
+
+  public async connect(): Promise<void> {
     try {
-      await this.connectToWhatsApp();
+      const { state, saveCreds } = await useMultiFileAuthState(
+        join(process.cwd(), this.AUTH_FOLDER)
+      );
+
+      const config = {
+        printQRInTerminal: true,
+        auth: state,
+        logger: pino({ level: 'silent' }) as any,
+      } as UserFacingSocketConfig;
+
+      this.socket = makeWASocket(config);
+
+      this.setupEventListeners(saveCreds);
     } catch (error) {
-      this.logger.error('Error durante la inicialización del módulo', error);
+      this.logger.error('Error connecting to WhatsApp:', error);
+      throw error;
     }
   }
 
-  getConnectionStatus() {
+  private setupEventListeners(saveCreds: () => Promise<void>): void {
+    if (!this.socket) {
+      throw new Error('Socket not initialized');
+    }
+
+    // Manejar eventos de conexión
+    this.socket.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        this.handleQRCode(qr);
+      }
+
+      if (connection === 'close') {
+        const shouldReconnect =
+          (lastDisconnect?.error as Boom)?.output?.statusCode !==
+          DisconnectReason.loggedOut;
+
+        if (shouldReconnect) {
+          await this.handleReconnect();
+        }
+      } else if (connection === 'open') {
+        this.handleSuccessfulConnection();
+      }
+    });
+
+    // Manejar eventos de credenciales
+    this.socket.ev.on('creds.update', async () => {
+      await saveCreds();
+    });
+
+    // Manejar eventos de mensajes
+    this.socket.ev.on('messages.upsert', async (m) => {
+      const message = m.messages[0];
+      if (!message?.key?.fromMe && m.type === 'notify') {
+        await this.handleIncomingMessage(message);
+      }
+    });
+
+    // Suscribirse a todos los eventos disponibles para logging
+    const eventTypes = ['connection.update', 'creds.update', 'messages.upsert'] as const;
+    eventTypes.forEach((event) => {
+      this.socket.ev.on(event, (...args) => {
+        this.logger.debug(`Event ${event}:`, args);
+      });
+    });
+  }
+
+  private async handleQRCode(qr: string): Promise<void> {
+    this.qrCode = qr;
+    this.connectionAttempts++;
+
+    if (this.connectionAttempts > this.MAX_QR_ATTEMPTS) {
+      this.logger.error('Max QR code generation attempts reached');
+      throw new Error('Max QR code generation attempts reached');
+    }
+
+    this.logger.log(`QR Code generated (attempt ${this.connectionAttempts}/${this.MAX_QR_ATTEMPTS})`);
+  }
+
+  private async handleReconnect(): Promise<void> {
+    this.logger.log('Reconnecting to WhatsApp...');
+    await this.connect();
+  }
+
+  private handleSuccessfulConnection(): void {
+    this.isConnected = true;
+    this.connectionAttempts = 0;
+    this.logger.log('Connected to WhatsApp');
+  }
+
+  private async handleIncomingMessage(message: proto.IWebMessageInfo): Promise<void> {
+    try {
+      const processedMessage = this.processMessage(message);
+      if (processedMessage) {
+        await this.chatbotService.handleMessage(processedMessage);
+      }
+    } catch (error) {
+      this.logger.error('Error processing incoming message:', error);
+    }
+  }
+
+  private processMessage(message: proto.IWebMessageInfo): ProcessedMessage | null {
+    if (!message.message) return null;
+
+    const messageType = Object.keys(message.message)[0];
+    const messageContent = message.message[messageType];
+
+    if (typeof messageContent !== 'object') return null;
+
+    let text = '';
+    if ('text' in messageContent) {
+      text = messageContent.text as string;
+    } else if ('caption' in messageContent) {
+      text = messageContent.caption as string;
+    }
+
+    if (!text) return null;
+
     return {
-      status: this.connectionStatus,
-      qrAvailable: !!this.currentQR,
-      qrGenerationAttempts: this.qrGenerationAttempts,
+      text,
+      from: message.key.remoteJid || '',
+      timestamp: message.messageTimestamp as number,
+      key: message.key,
+      message: message.message,
+    };
+  }
+
+  public getConnectionStatus(): StatusResponseDto {
+    return {
+      status: this.isConnected ? 'connected' : 'disconnected' as 'connected' | 'disconnected' | 'connecting',
       timestamp: new Date().toISOString()
     };
   }
 
-  async sendMessage(number: string, message: string) {
+  public async getCurrentQR(): Promise<string> {
+    return this.qrCode;
+  }
+
+  public async forceQRRegeneration(): Promise<void> {
+    this.connectionAttempts = 0;
+    await this.connect();
+  }
+
+  public async sendMessage(to: string, message: string): Promise<any> {
     try {
-      if (!this.client || this.connectionStatus !== 'connected') {
-        throw new Error('WhatsApp no está conectado');
+      if (!this.isConnected) {
+        throw new Error('WhatsApp is not connected');
       }
 
-      // Asegurarse que el número tenga el formato correcto
-      const formattedNumber = number.includes('@s.whatsapp.net') 
-        ? number 
-        : `${number.replace(/[^\d]/g, '')}@s.whatsapp.net`;
-
-      await this.client.sendMessage(formattedNumber, {
-        text: message
-      });
-
+      const formattedNumber = `${to}@s.whatsapp.net`;
+      const result = await this.socket.sendMessage(formattedNumber, { text: message });
+      
       return {
         success: true,
-        message: 'Mensaje enviado correctamente'
+        messageId: result.key.id,
+        timestamp: result.messageTimestamp
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
+      this.logger.error('Error sending message:', error);
+      throw error;
     }
   }
 
-  getClient() {
-    return this.client;
+  public getQRCode(): string {
+    return this.qrCode;
   }
 
-  async getCurrentQR(): Promise<string | null> {
-    try {
-      // Incrementar contador de intentos
-      this.qrGenerationAttempts++;
-
-      // Reiniciar intentos si se supera el máximo
-      if (this.qrGenerationAttempts > this.MAX_QR_ATTEMPTS) {
-        this.logger.error('Máximo de intentos de generación de QR alcanzado');
-        this.qrGenerationAttempts = 0;
-        return null;
-      }
-
-      // Si no hay cliente, intentar reconectar
-      if (!this.client) {
-        this.logger.warn('Cliente de WhatsApp no inicializado. Intentando reconectar...');
-        await this.connectToWhatsApp();
-      }
-
-      return this.currentQR;
-    } catch (error) {
-      this.logger.error('Error al obtener QR actual:', error);
-      return null;
-    }
+  public isWhatsAppConnected(): boolean {
+    return this.isConnected;
   }
 
-  async forceQRRegeneration() {
+  public async close(): Promise<void> {
     try {
-      this.logger.log('Forzando regeneración de QR...');
-      
-      // Reiniciar estado de conexión
-      this.connectionStatus = 'disconnected';
-      this.currentQR = null;
-      
-      // Desconectar cliente actual si existe
-      if (this.client) {
-        this.client.ev.removeAllListeners('connection.update');
-        this.client.logout();
+      if (!this.socket) {
+        throw new Error('Socket not initialized');
       }
-
-      // Reconectar
-      await this.connectToWhatsApp();
+      await this.socket.end(undefined);
+      this.isConnected = false;
+      this.logger.log('WhatsApp connection closed');
     } catch (error) {
-      this.logger.error('Error al forzar regeneración de QR:', error);
-    }
-  }
-
-  async connectToWhatsApp() {
-    try {
-      this.connectionStatus = 'connecting';
-      const authPath = path.join(process.cwd(), 'auth_info_baileys');
-      const { state, saveCreds } = await useMultiFileAuthState(authPath);
-
-      // Configuración por defecto
-      this.client = makeWASocket.default({
-        auth: state,
-        printQRInTerminal: true,
-      });
-
-      // Manejar eventos de conexión
-      this.client.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
-        this.logger.log(`Estado de conexión: ${connection}`);
-
-        if (qr) {
-          this.logger.log('Generando código QR...');
-          try {
-            // Almacenar el QR para acceso posterior
-            this.currentQR = qr;
-            this.qrGenerationAttempts = 0;
-
-            // Opcional: Guardar QR como archivo (para depuración)
-            const qrPath = path.join(process.cwd(), 'qr-code.png');
-            await qrcode.toFile(qrPath, qr, {
-              type: 'png',
-              width: 800,
-              margin: 1,
-              errorCorrectionLevel: 'H'
-            });
-          } catch (err) {
-            this.logger.error('Error al procesar QR:', err);
-          }
-        }
-
-        if (connection === 'close') {
-          this.connectionStatus = 'disconnected';
-          const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-          this.logger.log(`Conexión cerrada. Reconectando: ${shouldReconnect}`);
-          
-          if (shouldReconnect) {
-            await this.connectToWhatsApp();
-          }
-        } else if (connection === 'open') {
-          this.connectionStatus = 'connected';
-          this.currentQR = null;
-          this.qrGenerationAttempts = 0;
-          this.logger.log('¡Conexión establecida!');
-        }
-      });
-
-      // Guardar credenciales
-      this.client.ev.on('creds.update', saveCreds);
-
-      // Manejar mensajes entrantes
-      this.client.ev.on('messages.upsert', async ({ messages }) => {
-        const message = messages[0];
-        
-        if (!message?.message || message.key.fromMe) return;
-
-        const messageText = message.message.conversation || 
-                          message.message.extendedTextMessage?.text || 
-                          '';
-
-        const remoteJid = message.key.remoteJid;
-
-        // Procesar comandos
-        switch(messageText.toLowerCase()) {
-          case 'hola':
-            await this.client.sendMessage(remoteJid, {
-              text: '👋 ¡Hola! Soy un bot de WhatsApp. ¿En qué puedo ayudarte?'
-            });
-            break;
-          case 'ayuda':
-            await this.client.sendMessage(remoteJid, {
-              text: `🤖 *Comandos disponibles:*\n\n` +
-                   `- *hola*: Saludo inicial\n` +
-                   `- *ayuda*: Muestra este mensaje\n` +
-                   `- *info*: Información sobre el bot`
-            });
-            break;
-          default:
-            await this.client.sendMessage(remoteJid, {
-              text: '❓ No entiendo ese comando. Escribe *ayuda* para ver los comandos disponibles.'
-            });
-        }
-      });
-    } catch (error) {
-      this.logger.error('Error al conectar a WhatsApp:', error);
-      this.connectionStatus = 'disconnected';
+      this.logger.error('Error closing WhatsApp connection:', error);
       throw error;
     }
   }

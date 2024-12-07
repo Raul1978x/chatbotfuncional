@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthController } from './health/health.controller';
@@ -12,8 +14,10 @@ import { HealthController } from './health/health.controller';
       isGlobal: true,
       envFilePath: ['.env', '.env.local']
     }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
-    WhatsappModule
+    WhatsappModule,
+    ChatbotModule
   ],
   controllers: [AppController, HealthController],
   providers: [AppService]

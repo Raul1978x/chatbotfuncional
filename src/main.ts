@@ -19,7 +19,20 @@ async function bootstrap() {
       abortOnError: false
     });
 
-    // Añadir ValidationPipe global
+    // Configuración de Swagger
+    const config = new DocumentBuilder()
+      .setTitle('WhatsApp Chatbot API')
+      .setDescription('API para el chatbot de WhatsApp con capacidades modulares')
+      .setVersion('1.0')
+      .addTag('whatsapp')
+      .addTag('chatbot')
+      .addBearerAuth()
+      .build();
+    
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+
+    // Configurar ValidationPipe global
     app.useGlobalPipes(new ValidationPipe({
       transform: true,
       whitelist: true,
@@ -46,26 +59,6 @@ async function bootstrap() {
       ],
       credentials: true,
       maxAge: 3600
-    });
-
-    // Configurar Swagger
-    const config = new DocumentBuilder()
-      .setTitle('WhatsApp Bot API')
-      .setDescription('API para el bot de WhatsApp usando Baileys')
-      .setVersion('1.0')
-      .addTag('WhatsApp')
-      .addServer('https://chatbot-funcional-714i40cwx-raul1978xs-projects.vercel.app/api', 'Vercel Deployment')
-      .addServer('http://localhost:3000/api', 'Local Development')
-      .addBearerAuth() // Añadir soporte para autenticación Bearer
-      .build();
-
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document, {
-      swaggerOptions: {
-        docExpansion: 'none',
-        filter: true,
-        showRequestDuration: true
-      }
     });
 
     // Obtener el puerto del entorno o usar el valor por defecto
