@@ -1,13 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "./vercel-build.sh",
-  "installCommand": "npm install",
-  "outputDirectory": "dist",
-  "framework": null,
-  "env": {
-    "NODE_ENV": "production",
-    "PORT": "3000"
-  },
   "builds": [
     {
       "src": "dist/main.js",
@@ -19,5 +11,13 @@
       "src": "/(.*)",
       "dest": "dist/main.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "PORT": "3000"
+  },
+  "buildCommand": "npm run build",
+  "devCommand": "npm run start:dev",
+  "outputDirectory": "dist",
+  "framework": "nestjs"
 }

@@ -4,8 +4,6 @@
 echo "Node version: $(node -v)"
 echo "NPM version: $(npm -v)"
 echo "Current directory: $(pwd)"
-echo "Directory contents:"
-ls -la
 
 # Instalar dependencias
 npm install
@@ -23,14 +21,5 @@ if [ -d "dist" ]; then
     ls -la dist
 else
     echo "Build failed!"
-    echo "Build logs:"
-    cat npm-debug.log || echo "No npm debug log found"
     exit 1
 fi
-
-# Listar archivos de configuración
-echo "Vercel configuration:"
-cat vercel.json || echo "No vercel.json found"
-
-echo "Package.json:"
-cat package.json || echo "No package.json found"
